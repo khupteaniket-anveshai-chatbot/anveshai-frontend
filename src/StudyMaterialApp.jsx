@@ -1,5 +1,11 @@
 import React, { useEffect, useState } from "react";
 import "./StudyMaterialApp.css";
+import logo from "./assets/anveshai-logo.png";
+
+/**
+ * StudyMaterialApp — dark split layout with logo
+ * Usage: <StudyMaterialApp apiBase="http://127.0.0.1:8000/api/v1" token="test" />
+ */
 
 export default function StudyMaterialApp({ apiBase = "http://127.0.0.1:8000/api/v1", token = "" }) {
   const [materialId, setMaterialId] = useState("1");
@@ -93,7 +99,7 @@ export default function StudyMaterialApp({ apiBase = "http://127.0.0.1:8000/api/
     <div className="dark-app">
       <div className="left-panel">
         <div className="brand">
-          <div className="brand-icon">☁</div>
+          <img src={logo} alt="AnveshAI Logo" className="brand-logo" />
           <div className="brand-title">AnveshAI</div>
           <div className="brand-sub">StudyMaterial editor</div>
         </div>
