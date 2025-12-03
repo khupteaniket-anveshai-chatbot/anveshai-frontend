@@ -89,14 +89,6 @@
   transition:all .25s ease-in-out;
 }
 
-/* AI Underline animation */
-.brand-title-wrapper::after{
-  bottom:-6px;height:3px;left:0;right:0;
-  background:linear-gradient(90deg,#00eaff,#00b7ff,#0094ff);
-  border-radius:4px;opacity:.75;
-  animation:aiLinePulse 2.2s ease-in-out infinite;
-}
-
 @keyframes aiLinePulse{
   0%{opacity:.4;transform:scaleX(.6);}
   50%{opacity:1;transform:scaleX(1);}
@@ -163,6 +155,43 @@
 .brand-sub{
   color:#dadde0;font-size:20px;font-weight:700;
   margin-top:7px;text-align:center;
+}
+
+/* Neon Pulse Animation */
+.text-exploration {
+  background: linear-gradient(90deg, #02b3f9, #00eaff);
+  -webkit-background-clip: text;
+  color: transparent;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+
+  text-shadow:
+    0 0 12px rgba(0, 200, 255, 0.55),
+    0 0 26px rgba(0, 180, 255, 0.35),
+    0 0 40px rgba(0, 150, 255, 0.25);
+
+  animation: explorationPulse 3s ease-in-out infinite;
+}
+
+@keyframes explorationPulse {
+  0% {
+    text-shadow:
+      0 0 12px rgba(0, 255, 255, 0.55),
+      0 0 24px rgba(0, 220, 255, 0.35),
+      0 0 40px rgba(0, 180, 255, 0.25);
+  }
+  50% {
+    text-shadow:
+      0 0 22px rgba(0, 255, 255, 0.95),
+      0 0 40px rgba(0, 220, 255, 0.65),
+      0 0 70px rgba(0, 180, 255, 0.45);
+  }
+  100% {
+    text-shadow:
+      0 0 12px rgba(0, 255, 255, 0.55),
+      0 0 24px rgba(0, 220, 255, 0.35),
+      0 0 40px rgba(0, 180, 255, 0.25);
+  }
 }
 
 /* --------------------------------------------------------- */
@@ -634,7 +663,7 @@
 
 /* Bigger “Choose File” button */
 .upload-form input[type="file"]::file-selector-button {
-  padding: 14px 22px;
+  padding: 12px 24px 12px 12px; /* top/right/bottom/left */
   font-size: 15px;
   font-weight: 700;
   border-radius: 8px;

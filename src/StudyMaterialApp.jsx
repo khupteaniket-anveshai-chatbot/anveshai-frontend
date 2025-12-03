@@ -209,8 +209,10 @@ export default function StudyMaterialApp({ apiBase = "http://127.0.0.1:8000/api/
             </div>
           </div>
           <div className="brand-sub">अन्वेषणं ज्ञानस्य मार्गः।</div>
+          <div className="brand-sub">
+              <span className="text-exploration">Exploration</span> is the Path to Knowledge.
+            </div>
         </div>
-
         <div className="form-block">
           <label className="label">Material ID</label>
           <div className="row">
