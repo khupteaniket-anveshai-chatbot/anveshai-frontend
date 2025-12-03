@@ -23,7 +23,13 @@
 .left-panel{
   width:420px;
   min-width:320px;
-  background: linear-gradient(180deg, rgba(5,8,13,1) 0%, rgba(10,12,17,1) 100%);
+  background: linear-gradient(
+    90deg,
+    rgba(5, 8, 13, 0.9) 0%,
+    rgba(10, 12, 17, 0.7) 60%,
+    rgba(12, 17, 24, 0.35) 100%
+  );
+  backdrop-filter: blur(4px);
   padding:40px 30px;
   box-shadow: 4px 0 30px rgba(2,6,15,0.6);
   display:flex;
@@ -32,7 +38,7 @@
 }
 
 /* Logo image */
-.brand-logo {
+/* .brand-logo {
   width: 72px;
   height: 72px;
   border-radius: 10px;
@@ -40,28 +46,37 @@
   background: rgba(255,255,255,0.03);
   padding: 8px;
   box-shadow: 0 6px 22px rgba(0,0,0,0.45);
+} */
+
+/* Remove logo entirely */
+.brand-logo {
+  display: none !important;
 }
 
 /* Brand Title */
-.brand{
-  display:flex;
-  flex-direction:column;
-  gap:8px;
-  margin-bottom:6px;
-  align-items:flex-start;
+/* Brand container */
+.brand {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 12px;
+  align-items: flex-start;
 }
+/* MAIN TITLE — larger + stronger + premium gradient */
 .brand-title {
-  font-size: 26px;
+  font-size: 34px;                         /* increased size */
   font-weight: 900;
-  background: linear-gradient(90deg, #0c4769, #61d4ff);
+  background: linear-gradient(90deg, #0ea5ff, #78dafe);
   -webkit-background-clip: text;
   color: transparent;
-  letter-spacing: -0.5px;
+  letter-spacing: -0.6px;
 }
+/* Subtitle */
 .brand-sub {
   color: #eaeef1;
-  font-size: 12px;
+  font-size: 13px;
   margin-top: 4px;
+  opacity: 0.85;
 }
 .brand-title-frame {
   padding: 10px 18px;
