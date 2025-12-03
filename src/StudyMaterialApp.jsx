@@ -183,8 +183,10 @@ export default function StudyMaterialApp({ apiBase = "http://127.0.0.1:8000/api/
           <img src={logo} alt="AnveshAI Logo" className="brand-logo" />
           <div class="brand-title-frame">
           <div class="brand-title-wrapper">
-  <div class="brand-title">AnveshAI</div>
-</div>
+          <div class="brand-title">
+            Anvesh<span class="ai-highlight">AI</span>
+          </div>
+        </div>
         </div>
           <div className="brand-sub">अन्वेषणं ज्ञानस्य मार्गः।</div>
         </div>
