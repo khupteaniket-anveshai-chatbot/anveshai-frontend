@@ -20,6 +20,7 @@ export default function StudyMaterialApp({ apiBase = "http://127.0.0.1:8000/api/
   const [editorOpen, setEditorOpen] = useState(false);
   const [newContent, setNewContent] = useState("");
   const [fullViewOpen, setFullViewOpen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false); // NEW: fullscreen state
 
   // MEMOIZE headers so object identity doesn't change each render
   const headers = useMemo(() => (token ? { Authorization: `Bearer ${token}` } : {}), [token]);
@@ -90,7 +91,10 @@ export default function StudyMaterialApp({ apiBase = "http://127.0.0.1:8000/api/
   // Close full view on Escape
   useEffect(() => {
     function onKey(e) {
-      if (e.key === "Escape") setFullViewOpen(false);
+      if (e.key === "Escape") {
+        setFullViewOpen(false);
+        setIsFullscreen(false);
+      }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -174,6 +178,22 @@ export default function StudyMaterialApp({ apiBase = "http://127.0.0.1:8000/api/
     } else {
       setFullViewOpen(true);
     }
+    // ensure fullscreen mode starts as false when opening
+    setIsFullscreen(false);
+  }
+
+  // Handler to allow pressing Enter in the Material ID input to trigger load
+  function handleMaterialInputKey(e) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      // Use the latest materialId from state
+      fetchMaterial(materialId);
+    }
+  }
+
+  // Toggle fullscreen mode for the fullview panel
+  function toggleFullview() {
+    setIsFullscreen((prev) => !prev);
   }
 
   return (
@@ -181,20 +201,26 @@ export default function StudyMaterialApp({ apiBase = "http://127.0.0.1:8000/api/
       <div className="left-panel">
         <div className="brand">
           <img src={logo} alt="AnveshAI Logo" className="brand-logo" />
-          <div class="brand-title-frame">
-          <div class="brand-title-wrapper">
-          <div class="brand-title">
-            Anvesh<span class="ai-highlight">AI</span>
+          <div className="brand-title-frame">
+            <div className="brand-title-wrapper">
+              <div className="brand-title">
+                Anvesh<span className="ai-highlight">AI</span>
+              </div>
+            </div>
           </div>
-        </div>
-        </div>
           <div className="brand-sub">अन्वेषणं ज्ञानस्य मार्गः।</div>
         </div>
 
         <div className="form-block">
           <label className="label">Material ID</label>
           <div className="row">
-            <input className="input" value={materialId} onChange={(e) => setMaterialId(e.target.value)} />
+            <input
+              className="input"
+              value={materialId}
+              onChange={(e) => setMaterialId(e.target.value)}
+              onKeyDown={handleMaterialInputKey}
+              aria-label="Material ID"
+            />
             <button className="btn primary" onClick={() => fetchMaterial(materialId)}>Load</button>
           </div>
 
@@ -202,10 +228,25 @@ export default function StudyMaterialApp({ apiBase = "http://127.0.0.1:8000/api/
 
           <label className="label">Upload .docx</label>
           <form onSubmit={handleUpload} className="upload-form">
-            <input id="docx-file-input" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+            <input
+              id="docx-file-input"
+              type="file"
+              accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            />
             <div className="upload-row">
               <button className="btn" type="submit" disabled={uploading || !file}>{uploading ? "Uploading..." : "Upload"}</button>
-              <button className="btn outline" type="button" onClick={() => { setFile(null); const el = document.getElementById("docx-file-input"); if(el) el.value = ""; }}>Clear</button>
+              <button
+                className="btn outline"
+                type="button"
+                onClick={() => {
+                  setFile(null);
+                  const el = document.getElementById("docx-file-input");
+                  if (el) el.value = "";
+                }}
+              >
+                Clear
+              </button>
             </div>
             <div className="file-name">{file ? file.name : <span className="muted">No file selected</span>}</div>
           </form>
@@ -213,7 +254,15 @@ export default function StudyMaterialApp({ apiBase = "http://127.0.0.1:8000/api/
           <div className="spacer" />
 
           <label className="label">Quick actions</label>
-          <button className="btn ghost" onClick={() => { setEditorOpen(true); setNewContent(material?.latest_version?.content || ""); }}>New Version</button>
+          <button
+            className="btn ghost"
+            onClick={() => {
+              setEditorOpen(true);
+              setNewContent(material?.latest_version?.content || "");
+            }}
+          >
+            New Version
+          </button>
 
           {error && <div className="error">{error}</div>}
           {uploadToast && <div className="success">{uploadToast}</div>}
@@ -229,7 +278,14 @@ export default function StudyMaterialApp({ apiBase = "http://127.0.0.1:8000/api/
             <p className="hero-sub">View, upload, and publish concise study notes from your .docx files.</p>
             <div className="hero-cta-row">
               <button className="btn primary" onClick={() => openFullView(selectedVersionId)}>Open Material</button>
-              <button className="btn outline" onClick={() => { if (material?.id) navigator.clipboard?.writeText(`${apiBase}/materials/${material.id}`); }}>Copy Link</button>
+              <button
+                className="btn outline"
+                onClick={() => {
+                  if (material?.id) navigator.clipboard?.writeText(`${apiBase}/materials/${material.id}`);
+                }}
+              >
+                Copy Link
+              </button>
             </div>
           </div>
 
@@ -242,8 +298,8 @@ export default function StudyMaterialApp({ apiBase = "http://127.0.0.1:8000/api/
                     <div className="muted small">Topic</div>
                     <div className="mc-title">{material.topic || "—"}</div>
 
-                    <div style={{display:"flex", gap:12, marginTop:12}}>
-                      <div style={{flex:"0 0 180px"}}>
+                    <div style={{ display: "flex", gap: 12, marginTop: 12 }}>
+                      <div style={{ flex: "0 0 180px" }}>
                         <div className="muted small">Versions</div>
                         <div className="versions-list">
                           {versions.length === 0 && <div className="muted">No versions</div>}
@@ -251,7 +307,10 @@ export default function StudyMaterialApp({ apiBase = "http://127.0.0.1:8000/api/
                             <button
                               key={v.id}
                               className={`version-item ${String(v.id) === String(selectedVersionId) ? "active" : ""}`}
-                              onClick={() => { setSelectedVersionId(v.id); openFullView(v.id); }}
+                              onClick={() => {
+                                setSelectedVersionId(v.id);
+                                openFullView(v.id);
+                              }}
                             >
                               <div className="ver-id">v{v.id}</div>
                               <div className="ver-meta">{v.change_summary || (v.created_at ? new Date(v.created_at).toLocaleString() : "")}</div>
@@ -260,7 +319,7 @@ export default function StudyMaterialApp({ apiBase = "http://127.0.0.1:8000/api/
                         </div>
                       </div>
 
-                      <div style={{flex:1}}>
+                      <div style={{ flex: 1 }}>
                         <div className="muted small">Selected Content</div>
                         <div className="mc-content">
                           {selectedVersion() ? renderContent(selectedVersion().content) : <div className="muted">Select a version to view its notes</div>}
@@ -298,17 +357,39 @@ export default function StudyMaterialApp({ apiBase = "http://127.0.0.1:8000/api/
 
       {/* Full screen reading view */}
       {fullViewOpen && (
-        <div className="fullview-backdrop" onClick={() => setFullViewOpen(false)}>
-          <div className="fullview-panel" onClick={(e) => e.stopPropagation()}>
+        <div className="fullview-backdrop" onClick={() => { setFullViewOpen(false); setIsFullscreen(false); }}>
+          <div
+            className={`fullview-panel ${isFullscreen ? "fullscreen-mode" : ""}`}
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="fullview-header">
-              <div>
-                <div className="fullview-title">{material?.topic || "Study Material"}</div>
-                <div className="fullview-sub muted">{material ? `Material ID: ${material.id}` : ""}</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div>
+                  <div className="fullview-title">{material?.topic || "Study Material"}</div>
+                  <div className="fullview-sub muted">{material ? `Material ID: ${material.id}` : ""}</div>
+                </div>
               </div>
-              <div className="fullview-actions">
-                <button className="btn outline" onClick={() => setFullViewOpen(false)}>Close</button>
+
+              <div className="fullview-actions" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <button
+                  className="btn fullview-expand-btn"
+                  onClick={toggleFullview}
+                >
+                  {isFullscreen ? "⤡ Exit Full View" : "⤢ Full View"}
+                </button>
+
+                <button
+                  className="btn outline"
+                  onClick={() => {
+                    setFullViewOpen(false);
+                    setIsFullscreen(false);
+                  }}
+                >
+                  Close
+                </button>
               </div>
             </div>
+
             <div className="fullview-body">
               {selectedVersion() ? (
                 <article className="fullview-article">
