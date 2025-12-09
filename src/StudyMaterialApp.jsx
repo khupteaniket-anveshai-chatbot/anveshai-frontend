@@ -9,10 +9,13 @@ import logo from "./assets/anveshai-logo.png";
  */
 
 export default function StudyMaterialApp({ apiBase = "http://127.0.0.1:8000/api/v1", token = "" }) {
+  // --- existing material/version state ---
   const [materialId, setMaterialId] = useState("1");
   const [material, setMaterial] = useState(null);
   const [versions, setVersions] = useState([]);
   const [selectedVersionId, setSelectedVersionId] = useState(null);
+
+  // --- upload / editor state (unchanged) ---
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [uploadToast, setUploadToast] = useState("");
@@ -20,12 +23,196 @@ export default function StudyMaterialApp({ apiBase = "http://127.0.0.1:8000/api/
   const [editorOpen, setEditorOpen] = useState(false);
   const [newContent, setNewContent] = useState("");
   const [fullViewOpen, setFullViewOpen] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false); // NEW: fullscreen state
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // --- new: subject/topic/subtopic state ---
+  const [subjects, setSubjects] = useState([]);
+  const [selectedSubjectId, setSelectedSubjectId] = useState(null);
+  const [topics, setTopics] = useState([]); // array of { topic, subtopics } or strings
+  const [selectedTopic, setSelectedTopic] = useState("");
+  const [subtopics, setSubtopics] = useState([]); // array of strings
+  const [selectedSubtopic, setSelectedSubtopic] = useState("");
 
   // MEMOIZE headers so object identity doesn't change each render
-  const headers = useMemo(() => (token ? { Authorization: `Bearer ${token}` } : {}), [token]);
+  const headers = useMemo(() => {
+    const h = {};
+    if (token) h["Authorization"] = `Bearer ${token}`;
+    return h;
+  }, [token]);
 
-  // fetch versions and auto-select preferred id
+  // -------------------------
+  // Helper fetch wrappers
+  // -------------------------
+  async function safeFetchJson(url, opts = {}) {
+    const res = await fetch(url, opts);
+    if (!res.ok) {
+      const txt = await res.text().catch(() => "");
+      throw new Error(`${res.status} ${txt}`);
+    }
+    return res.json();
+  }
+
+  // -------------------------
+  // Subjects / Topics / Subtopics loaders
+  // -------------------------
+  const fetchSubjects = useCallback(async () => {
+    setError(null);
+    try {
+      const data = await safeFetchJson(`${apiBase}/subjects/`, { headers });
+      // data expected as list of SubjectOut { id, title?, name? }
+      setSubjects(Array.isArray(data) ? data : []);
+      // auto-select first subject if none
+      if (Array.isArray(data) && data.length > 0 && !selectedSubjectId) {
+        const first = data[0];
+        setSelectedSubjectId(first.id);
+      }
+    } catch (err) {
+      console.warn("fetchSubjects failed:", err);
+      setError("Could not fetch subjects");
+      setSubjects([]);
+      setSelectedSubjectId(null);
+    }
+  }, [apiBase, headers, selectedSubjectId]);
+
+  const fetchTopicsForSubject = useCallback(
+    async (subjectId) => {
+      if (!subjectId) {
+        setTopics([]);
+        setSelectedTopic("");
+        return;
+      }
+      setError(null);
+      try {
+        const data = await safeFetchJson(`${apiBase}/subjects/${subjectId}/topics`, { headers });
+        // data expected as array of { topic: string, subtopics: [{subtopic}] } or simple list of strings
+        // Normalize to array of objects { topic, subtopics }
+        let normalized = [];
+        if (Array.isArray(data)) {
+          if (data.length > 0 && typeof data[0] === "string") {
+            normalized = data.map((t) => ({ topic: t, subtopics: [] }));
+          } else {
+            normalized = data.map((item) => {
+              // item might be string or object
+              if (!item) return null;
+              if (typeof item === "string") return { topic: item, subtopics: [] };
+              const topicStr = item.topic ?? item.title ?? (item[0] || "");
+              const subs =
+                Array.isArray(item.subtopics) && item.subtopics.length > 0
+                  ? item.subtopics.map((s) => (typeof s === "string" ? s : s.subtopic ?? s.title ?? ""))
+                  : [];
+              return { topic: topicStr, subtopics: subs };
+            }).filter(Boolean);
+          }
+        }
+        setTopics(normalized);
+        // auto-select first topic if none set
+        if (normalized.length > 0) {
+          setSelectedTopic((prev) => prev || normalized[0].topic);
+        } else {
+          setSelectedTopic("");
+        }
+      } catch (err) {
+        console.warn("fetchTopicsForSubject failed:", err);
+        setError("Could not fetch topics");
+        setTopics([]);
+        setSelectedTopic("");
+      }
+    },
+    [apiBase, headers]
+  );
+
+  const fetchSubtopicsForTopic = useCallback(
+    async (subjectId, topic) => {
+      if (!subjectId || !topic) {
+        setSubtopics([]);
+        setSelectedSubtopic("");
+        return;
+      }
+      setError(null);
+      try {
+        const encTopic = encodeURIComponent(topic);
+        const data = await safeFetchJson(`${apiBase}/subjects/${subjectId}/topics/${encTopic}/subtopics`, { headers });
+        // data expected as [{ subtopic: "..." }, ...] or array of strings
+        let normalized = [];
+        if (Array.isArray(data) && data.length > 0) {
+          if (typeof data[0] === "string") {
+            normalized = data;
+          } else {
+            normalized = data.map((i) => (i.subtopic ?? i.title ?? (i[0] || ""))).filter(Boolean);
+          }
+        }
+        setSubtopics(normalized);
+        if (normalized.length > 0) {
+          setSelectedSubtopic((prev) => prev || normalized[0]);
+        } else {
+          setSelectedSubtopic("");
+        }
+      } catch (err) {
+        console.warn("fetchSubtopicsForTopic failed:", err);
+        setError("Could not fetch subtopics");
+        setSubtopics([]);
+        setSelectedSubtopic("");
+      }
+    },
+    [apiBase, headers]
+  );
+
+  // call when subject/topic/subtopic selections change
+  useEffect(() => {
+    // when subject changes -> load topics
+    if (selectedSubjectId) {
+      fetchTopicsForSubject(selectedSubjectId);
+    } else {
+      setTopics([]);
+      setSubtopics([]);
+      setSelectedTopic("");
+      setSelectedSubtopic("");
+    }
+  }, [selectedSubjectId, fetchTopicsForSubject]);
+
+  useEffect(() => {
+    if (selectedSubjectId && selectedTopic) {
+      fetchSubtopicsForTopic(selectedSubjectId, selectedTopic);
+    } else {
+      setSubtopics([]);
+      setSelectedSubtopic("");
+    }
+  }, [selectedTopic, selectedSubjectId, fetchSubtopicsForTopic]);
+
+  // when subtopic selected => fetch notes (StudyMaterial via /subjects/notes)
+  useEffect(() => {
+    if (selectedSubjectId && selectedTopic && selectedSubtopic) {
+      // fetch material/versions for this hierarchy
+      (async () => {
+        try {
+          setError(null);
+          // URL encode topic and subtopic
+          const url = `${apiBase}/subjects/notes?subject_id=${encodeURIComponent(selectedSubjectId)}&topic=${encodeURIComponent(
+            selectedTopic
+          )}&subtopic=${encodeURIComponent(selectedSubtopic)}`;
+          const data = await safeFetchJson(url, { headers });
+          // data expected to be StudyMaterialOut
+          setMaterial(data);
+          // if response has versions, map. older shape may use data.versions
+          const vs = Array.isArray(data?.versions) ? data.versions : [];
+          setVersions(vs);
+          setSelectedVersionId(vs && vs.length > 0 ? vs[0].id : null);
+          // reflect material id field into materialId input if present
+          if (data?.id) setMaterialId(String(data.id));
+        } catch (err) {
+          console.warn("fetch material by hierarchy failed:", err);
+          // if not found, clear material (user can create via UI later)
+          setMaterial(null);
+          setVersions([]);
+          setSelectedVersionId(null);
+        }
+      })();
+    }
+  }, [selectedSubjectId, selectedTopic, selectedSubtopic, apiBase, headers]);
+
+  // -------------------------
+  // existing fetch material/versions by material id (unchanged)
+  // -------------------------
   const fetchVersions = useCallback(
     async (studyMaterialId, preferVersionId = null) => {
       if (!studyMaterialId) return;
@@ -58,7 +245,6 @@ export default function StudyMaterialApp({ apiBase = "http://127.0.0.1:8000/api/
     [apiBase, headers]
   );
 
-  // fetch material and then versions; include fetchVersions in deps
   const fetchMaterial = useCallback(
     async (id) => {
       if (!id) return;
@@ -84,6 +270,10 @@ export default function StudyMaterialApp({ apiBase = "http://127.0.0.1:8000/api/
   );
 
   useEffect(() => {
+    // initial load: subjects (which will cascade to auto-select first topic/subtopic)
+    fetchSubjects();
+
+    // initial material id load (legacy)
     fetchMaterial(materialId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -104,7 +294,7 @@ export default function StudyMaterialApp({ apiBase = "http://127.0.0.1:8000/api/
     return versions.find((v) => String(v.id) === String(selectedVersionId)) || null;
   }
 
-  // Upload handler
+  // Upload handler (unchanged)
   async function handleUpload(e) {
     e.preventDefault();
     setError(null);
@@ -141,7 +331,7 @@ export default function StudyMaterialApp({ apiBase = "http://127.0.0.1:8000/api/
     }
   }
 
-  // create version
+  // create version (unchanged)
   async function handleCreateVersion(publish = true) {
     if (!material?.id) return setError("Open a material first");
     setError(null);
@@ -178,22 +368,27 @@ export default function StudyMaterialApp({ apiBase = "http://127.0.0.1:8000/api/
     } else {
       setFullViewOpen(true);
     }
-    // ensure fullscreen mode starts as false when opening
     setIsFullscreen(false);
   }
 
-  // Handler to allow pressing Enter in the Material ID input to trigger load
+  // Handler: Enter in Material ID input triggers load
   function handleMaterialInputKey(e) {
     if (e.key === "Enter") {
       e.preventDefault();
-      // Use the latest materialId from state
       fetchMaterial(materialId);
     }
   }
 
-  // Toggle fullscreen mode for the fullview panel
   function toggleFullview() {
     setIsFullscreen((prev) => !prev);
+  }
+
+  // -------------------------
+  // UI: format subject display
+  // -------------------------
+  function subjectDisplayName(s) {
+    if (!s) return "";
+    return s.title || s.name || `Subject ${s.id}`;
   }
 
   return (
@@ -210,10 +405,70 @@ export default function StudyMaterialApp({ apiBase = "http://127.0.0.1:8000/api/
           </div>
           <div className="brand-sub">अन्वेषणं ज्ञानस्य मार्गः।</div>
           <div className="brand-sub">
-              <span className="text-exploration">Exploration</span> is the Path to Knowledge.
-            </div>
+            <span className="text-exploration">Exploration</span> is the Path to Knowledge.
+          </div>
         </div>
+
         <div className="form-block">
+          {/* NEW: Subject / Topic / Subtopic selectors */}
+          <label className="label">Subject</label>
+          <div className="row">
+            <select
+              className="input"
+              value={selectedSubjectId ?? ""}
+              onChange={(e) => {
+                const v = e.target.value ? Number(e.target.value) : null;
+                setSelectedSubjectId(v);
+              }}
+            >
+              <option value="">— Select subject —</option>
+              {subjects.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {subjectDisplayName(s)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <label className="label">Topic</label>
+          <div className="row">
+            <select
+              className="input"
+              value={selectedTopic}
+              onChange={(e) => {
+                setSelectedTopic(e.target.value);
+              }}
+            >
+              <option value="">— Select topic —</option>
+              {topics.map((t) => (
+                <option key={t.topic} value={t.topic}>
+                  {t.topic}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <label className="label">Subtopic</label>
+          <div className="row">
+            <select
+              className="input"
+              value={selectedSubtopic}
+              onChange={(e) => {
+                setSelectedSubtopic(e.target.value);
+              }}
+            >
+              <option value="">— Select subtopic —</option>
+              {subtopics.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="spacer" />
+
+          {/* Material ID loader (legacy input) */}
           <label className="label">Material ID</label>
           <div className="row">
             <input
@@ -237,9 +492,9 @@ export default function StudyMaterialApp({ apiBase = "http://127.0.0.1:8000/api/
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
             />
             <div className="upload-row">
-              <button className="btn" type="submit" disabled={uploading || !file}>{uploading ? "Uploading..." : "Upload"}</button>
+              <button className="upload-btn" type="submit" disabled={uploading || !file}>{uploading ? "Uploading..." : "Upload"}</button>
               <button
-                className="btn outline"
+                className="clear-btn"
                 type="button"
                 onClick={() => {
                   setFile(null);
@@ -298,7 +553,7 @@ export default function StudyMaterialApp({ apiBase = "http://127.0.0.1:8000/api/
                 {material ? (
                   <>
                     <div className="muted small">Topic</div>
-                    <div className="mc-title">{material.topic || "—"}</div>
+                    <div className="mc-title">{material.topic || material.subtopic || "—"}</div>
 
                     <div style={{ display: "flex", gap: 12, marginTop: 12 }}>
                       <div style={{ flex: "0 0 180px" }}>
